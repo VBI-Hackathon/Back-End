@@ -43,6 +43,9 @@ pub use sp_runtime::{Perbill, Permill};
 /// Import the template pallet.
 pub use pallet_template;
 
+/// Import the template traceability.
+pub use pallet_traceability;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -279,6 +282,12 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+/// Configure the pallet-traceability in pallets/template.
+impl pallet_traceability::Config for Runtime {
+	type Event = Event;
+	type TraceRandomness = RandomnessCollectiveFlip;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -296,6 +305,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		TraceAbility: pallet_traceability,
 	}
 );
 
@@ -475,6 +485,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_balances, Balances);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
 			list_benchmark!(list, extra, pallet_template, TemplateModule);
+			list_benchmark!(list, extra, pallet_traceability, TraceAbility);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -513,6 +524,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 			add_benchmark!(params, batches, pallet_template, TemplateModule);
+			add_benchmark!(params, batches, pallet_traceability, TraceAbility);
 
 			Ok(batches)
 		}
