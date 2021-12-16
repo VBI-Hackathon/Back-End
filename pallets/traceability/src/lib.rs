@@ -75,6 +75,9 @@ pub mod pallet {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		Created(T::AccountId, T::Hash),
+
+		/// Event emitted when location is updated.
+		LocationSet(T::AccountId, T::Hash, Vec<u8>),
 	}
 
 	// Storage items.
@@ -98,6 +101,9 @@ pub mod pallet {
 		StorageOverflow,
 		/// Ensures that an account has enough funds to purchase a Kitty.
 		NotEnoughBalance,
+
+		/// Handles checking whether the User exists.
+		UserNotExist,
 
 		UserCntOverflow,
 	}
@@ -133,6 +139,29 @@ pub mod pallet {
 			<UserCnt<T>>::put(new_cnt);
 
 			Self::deposit_event(Event::Created(sender, hash_id));
+			Ok(())
+		}
+
+		/// Scan QR code, update new location
+		/// 
+		/// Updates storage.
+		#[pallet::weight(100)]
+		pub fn location_update(
+			origin: OriginFor<T>, 
+			user_id: T::Hash,
+			product_name: Vec<u8>,
+			new_address: Vec<u8>,
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			let mut user = Self::users(&user_id).ok_or(<Error<T>>::UserNotExist)?;
+
+			user.address = new_address.clone();
+			<UserInfos<T>>::insert(&user_id, user);
+
+			// Deposit a "LocationSet" event.
+			Self::deposit_event(Event::LocationSet(sender, user_id, new_address));
+
 			Ok(())
 		}
 	}
