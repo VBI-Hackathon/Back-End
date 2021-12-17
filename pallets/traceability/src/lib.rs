@@ -14,7 +14,9 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-pub use pallet_timestamp;
+// pub use pallet_timestamp;
+// use pallet_timestamp::{self as timestamp};
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -32,6 +34,11 @@ pub mod pallet {
 
 	use scale_info::TypeInfo;
 	use sp_io::hashing::blake2_128;
+
+	use pallet_timestamp::{self as timestamp};
+
+	use frame_support::traits::UnixTime;
+
 
 	#[cfg(feature = "std")]
 	use frame_support::serde::{Deserialize, Serialize};
@@ -51,7 +58,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + timestamp::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -61,7 +68,12 @@ pub mod pallet {
 
 		/// The type of Randomness we want to specify for this pallet.
 		type TraceRandomness: Randomness<Self::Hash, Self::BlockNumber>;
+
+		type TimeProvider: UnixTime;
 	}
+
+	// pub trait Config: frame_system::Config + timestamp::Config {}
+	
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -192,7 +204,7 @@ pub mod pallet {
 				rd: Self::gen_rd(),
 
 				product_name: "".as_bytes().to_vec(),
-				datetime: 0,
+				datetime: T::TimeProvider::now().as_secs(),
 			};
 
 			//let hash_id = T::Hashing::hash_of(&user);
@@ -210,6 +222,8 @@ pub mod pallet {
 
 			user.product_name = product_name;
 			//user.datetime = pallet_timestamp::pallet;
+
+			user.datetime = T::TimeProvider::now().as_secs();
 
 			let hash_id =
 				Self::mint(&sender, user.rd, user.user_name, user.address, user.product_name)?;
@@ -263,7 +277,7 @@ pub mod pallet {
 				owner: owner.clone(),
 				address: user_add,
 				product_name,
-				datetime: 0,
+				datetime: T::TimeProvider::now().as_secs(),
 			};
 
 			let hash_id = T::Hashing::hash_of(&user_info);

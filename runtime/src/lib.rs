@@ -292,6 +292,7 @@ impl pallet_traceability::Config for Runtime {
 	type Event = Event;
 	type MaxInfoOwned = MaxInfoOwned;
 	type TraceRandomness = RandomnessCollectiveFlip;
+	type TimeProvider = pallet_timestamp::Pallet<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
