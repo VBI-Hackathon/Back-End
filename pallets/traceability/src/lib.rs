@@ -14,8 +14,6 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-pub use pallet_timestamp;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -27,31 +25,33 @@ pub mod pallet {
 
 	use scale_info::prelude::vec::Vec;
 	//use sp_std::vec::Vec;
+	use frame_support::traits::UnixTime;
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::string::String;
 
 	use scale_info::TypeInfo;
 	use sp_io::hashing::blake2_128;
 
 	#[cfg(feature = "std")]
 	use frame_support::serde::{Deserialize, Serialize};
+
 	type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct UserInfo<T: Config> {
 		pub user_name: Vec<u8>,
-		pub rd: [u8; 16],
 		pub address: Vec<u8>,
 		pub owner: AccountOf<T>,
 
 		pub product_name: Vec<u8>,
+		pub quantity: u16,
+		pub note: Vec<u8>,
 		pub datetime: u64,
 	}
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_timestamp::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -61,6 +61,8 @@ pub mod pallet {
 
 		/// The type of Randomness we want to specify for this pallet.
 		type TraceRandomness: Randomness<Self::Hash, Self::BlockNumber>;
+
+		type TimeProvider: UnixTime;
 	}
 
 	#[pallet::pallet]
@@ -189,13 +191,15 @@ pub mod pallet {
 				user_name,
 				owner: sender.clone(),
 				address,
-				rd: Self::gen_rd(),
 
 				product_name: "".as_bytes().to_vec(),
-				datetime: 0,
+				quantity: 0,
+				note:"".as_bytes().to_vec(),
+				datetime: T::TimeProvider::now().as_secs(),
 			};
 
 			//let hash_id = T::Hashing::hash_of(&user);
+			//user.datetime = pallet_timestamp::Pallet::<T>::get();
 			<UserInfos<T>>::insert(sender, user);
 
 			Ok(())
@@ -203,16 +207,26 @@ pub mod pallet {
 
 		// Login
 		#[pallet::weight(100)]
-		pub fn create_ability(origin: OriginFor<T>, product_name: Vec<u8>) -> DispatchResult {
+		pub fn create_ability(origin: OriginFor<T>, product_name: Vec<u8>, quantity: u16,
+			note: Vec<u8>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			let mut user = Self::users(&sender).ok_or(<Error<T>>::AccountNotExist)?;
 
+			//user.datetime = pallet_timestamp::Pallet::<T>::get();
 			user.product_name = product_name;
+			user.quantity = quantity;
+			user.note = note;
 			//user.datetime = pallet_timestamp::pallet;
 
-			let hash_id =
-				Self::mint(&sender, user.rd, user.user_name, user.address, user.product_name)?;
+			let hash_id = Self::mint(
+				&sender,
+				user.user_name,
+				user.address,
+				user.product_name,
+				user.quantity,
+				user.note,
+			)?;
 
 			// Logging to the console
 			// log::info!("A HashID: {:?}.", hash_id);
@@ -226,14 +240,13 @@ pub mod pallet {
 		pub fn update_ability(origin: OriginFor<T>, hash_id: T::Hash) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let user = Self::users(&sender).ok_or(<Error<T>>::AccountNotExist)?;
+			let mut user = Self::users(&sender).ok_or(<Error<T>>::AccountNotExist)?;
+			//let date_time = pallet_timestamp::Pallet::get();
+			user.datetime = T::TimeProvider::now().as_secs();
 
 			// Performs this operation first as it may fail
 			let new_cnt = Self::user_cnt().checked_add(1).ok_or(<Error<T>>::UserCntOverflow)?;
-
-			// Check Hash ID exist
-
-
+			
 			// Performs this operation first because as it may fail
 			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user.clone()))
 				.map_err(|_| <Error<T>>::ExceedMaxLogOwned)?;
@@ -252,18 +265,20 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn mint(
 			owner: &T::AccountId,
-			rd: [u8; 16],
 			user_name: Vec<u8>,
 			user_add: Vec<u8>,
 			product_name: Vec<u8>,
+			quantity: u16,
+			note: Vec<u8>,
 		) -> Result<T::Hash, Error<T>> {
 			let user_info = UserInfo::<T> {
 				user_name,
-				rd,
 				owner: owner.clone(),
 				address: user_add,
 				product_name,
-				datetime: 0,
+				quantity,
+				note,
+				datetime: T::TimeProvider::now().as_secs(),
 			};
 
 			let hash_id = T::Hashing::hash_of(&user_info);
@@ -279,21 +294,6 @@ pub mod pallet {
 			<LogCnt<T>>::put(new_cnt);
 
 			Ok(hash_id)
-		}
-
-		fn gen_rd() -> [u8; 16] {
-			let payload = (
-				T::TraceRandomness::random(&b"rd"[..]).0,
-				<frame_system::Pallet<T>>::block_number(),
-			);
-			payload.using_encoded(blake2_128)
-		}
-
-		pub fn is_reg_exist(acct: &T::AccountId) -> Result<bool, Error<T>> {
-			match Self::users(acct) {
-				Some(user) => Ok(true),
-				None => Err(<Error<T>>::AccountNotExist),
-			}
 		}
 	}
 }
