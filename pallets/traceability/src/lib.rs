@@ -106,6 +106,12 @@ pub mod pallet {
 	/// Stores a All User Info unique traits to check Log
 	pub(super) type UserInfos<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, UserInfo<T>>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn info_owned)]
+	/// Keeps track of what accounts own what Kitty.
+	pub(super) type LogInfosOwned<T: Config> =
+		StorageMap<_, Twox64Concat, T::Hash, BoundedVec<UserInfo<T>, T::MaxInfoOwned>, ValueQuery>;
+
 	/*
 	#[pallet::storage]
 	#[pallet::getter(fn info_owned)]
@@ -157,9 +163,10 @@ pub mod pallet {
 		StorageOverflow,
 		/// Ensures that an account has enough funds to purchase a Kitty.
 		NotEnoughBalance,
-		ExceedMaxKittyOwned,
+		ExceedMaxLogOwned,
 		UserCntOverflow,
 		AccountNotExist,
+		LogInfoNotExist,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -204,7 +211,8 @@ pub mod pallet {
 			user.product_name = product_name;
 			//user.datetime = pallet_timestamp::pallet;
 
-			let hash_id = Self::mint(&sender, user.rd, user.user_name, user.address, user.product_name)?;
+			let hash_id =
+				Self::mint(&sender, user.rd, user.user_name, user.address, user.product_name)?;
 
 			// Logging to the console
 			// log::info!("A HashID: {:?}.", hash_id);
@@ -213,16 +221,22 @@ pub mod pallet {
 			Ok(())
 		}
 
-
 		// Login
 		#[pallet::weight(100)]
-		pub fn update_ability(origin: OriginFor<T>, hash_id: T::Hash,) -> DispatchResult {
+		pub fn update_ability(origin: OriginFor<T>, hash_id: T::Hash) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			let user = Self::users(&sender).ok_or(<Error<T>>::AccountNotExist)?;
 
 			// Performs this operation first as it may fail
 			let new_cnt = Self::user_cnt().checked_add(1).ok_or(<Error<T>>::UserCntOverflow)?;
+
+			// Check Hash ID exist
+
+
+			// Performs this operation first because as it may fail
+			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user.clone()))
+				.map_err(|_| <Error<T>>::ExceedMaxLogOwned)?;
 
 			<LogInfos<T>>::insert(hash_id, user);
 			<LogCnt<T>>::put(new_cnt);
@@ -241,7 +255,7 @@ pub mod pallet {
 			rd: [u8; 16],
 			user_name: Vec<u8>,
 			user_add: Vec<u8>,
-			product_name: Vec<u8>
+			product_name: Vec<u8>,
 		) -> Result<T::Hash, Error<T>> {
 			let user_info = UserInfo::<T> {
 				user_name,
@@ -256,6 +270,10 @@ pub mod pallet {
 
 			// Performs this operation first as it may fail
 			let new_cnt = Self::user_cnt().checked_add(1).ok_or(<Error<T>>::UserCntOverflow)?;
+
+			// Performs this operation first because as it may fail
+			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user_info.clone()))
+				.map_err(|_| <Error<T>>::ExceedMaxLogOwned)?;
 
 			<LogInfos<T>>::insert(hash_id, user_info);
 			<LogCnt<T>>::put(new_cnt);
