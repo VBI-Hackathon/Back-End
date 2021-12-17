@@ -282,9 +282,15 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	// One can own at most 999 Kitties
+	pub const MaxInfoOwned: u32 = 999;
+}
+
 /// Configure the pallet-traceability in pallets/template.
 impl pallet_traceability::Config for Runtime {
 	type Event = Event;
+	type MaxInfoOwned = MaxInfoOwned;
 	type TraceRandomness = RandomnessCollectiveFlip;
 }
 
