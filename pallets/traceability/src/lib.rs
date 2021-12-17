@@ -110,7 +110,7 @@ pub mod pallet {
 	#[pallet::getter(fn info_owned)]
 	/// Keeps track of what accounts own what Kitty.
 	pub(super) type LogInfosOwned<T: Config> =
-		StorageMap<_, Twox64Concat, T::Hash, BoundedVec<UserInfo<T>, T::MaxInfoOwned>, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::Hash, BoundedVec<UserInfo<T>, T::MaxInfoOwned>, ValueQuery>;
 
 	/*
 	#[pallet::storage]
@@ -235,7 +235,7 @@ pub mod pallet {
 
 
 			// Performs this operation first because as it may fail
-			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user))
+			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user.clone()))
 				.map_err(|_| <Error<T>>::ExceedMaxLogOwned)?;
 
 			<LogInfos<T>>::insert(hash_id, user);
@@ -257,7 +257,7 @@ pub mod pallet {
 			user_add: Vec<u8>,
 			product_name: Vec<u8>,
 		) -> Result<T::Hash, Error<T>> {
-			let mut user_info = UserInfo::<T> {
+			let user_info = UserInfo::<T> {
 				user_name,
 				rd,
 				owner: owner.clone(),
@@ -272,7 +272,7 @@ pub mod pallet {
 			let new_cnt = Self::user_cnt().checked_add(1).ok_or(<Error<T>>::UserCntOverflow)?;
 
 			// Performs this operation first because as it may fail
-			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user_info))
+			<LogInfosOwned<T>>::try_mutate(&hash_id, |log_vec| log_vec.try_push(user_info.clone()))
 				.map_err(|_| <Error<T>>::ExceedMaxLogOwned)?;
 
 			<LogInfos<T>>::insert(hash_id, user_info);
