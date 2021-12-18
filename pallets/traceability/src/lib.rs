@@ -109,6 +109,10 @@ pub mod pallet {
 	pub(super) type UserInfos<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, UserInfo<T>>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn hash_ids)]
+	pub(super) type HashIDs<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Hash>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn info_owned)]
 	/// Keeps track of what accounts own what Kitty.
 	pub(super) type LogInfosOwned<T: Config> =
@@ -291,6 +295,7 @@ pub mod pallet {
 				.map_err(|_| <Error<T>>::ExceedMaxLogOwned)?;
 
 			<LogInfos<T>>::insert(hash_id, user_info);
+			<HashIDs<T>>::insert(owner, hash_id);
 			<LogCnt<T>>::put(new_cnt);
 
 			Ok(hash_id)
